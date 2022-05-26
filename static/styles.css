@@ -1,0 +1,54 @@
+/* Size for brand */
+nav .navbar-brand
+{
+    font-size: xx-large;
+}
+
+/* Colors for brand */
+nav .navbar-brand .white
+{
+    color: whitesmoke;
+}
+
+nav .navbar-brand .gold
+{
+    color: #89630b;
+}
+
+/* Class for text alignments */
+.left
+{
+    text-align: left;
+}
+
+
+/* Display for profitability status in the portfolio page */
+.status[data-status="Loss"]{
+    background-color: red;
+    text-align: center;
+   }
+   
+.status[data-status="Profit"]{
+    background-color: blue;
+    text-align: center;
+   }
+   
+.status[data-status="_"]{
+    background-color: black; 
+    opacity: 0.9; 
+    text-align: center;
+}
+
+
+/* formatting for links  */
+
+a:link {
+    color: rgb(102, 92, 38);
+    font-weight: bold;
+  }
+  a:visited {
+    color: rgb(102, 92, 38);
+  }
+
+
+  

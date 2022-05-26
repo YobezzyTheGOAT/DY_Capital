@@ -1,0 +1,39 @@
+{% extends "layout.html" %}
+
+{% block title %}
+   Home
+{% endblock %}
+
+{% block main %}
+
+ <div class="container">
+   <div class="row align-items-center">
+     <div class="col-5 left" >
+      <h1>Word on the Street</h1>
+      <!-- Looping through the database entries to display them on the page -->
+
+      {% for row in display %}
+      <a href="{{ row.link }}" target="_blank">{{ row.title }} </a>
+      <p><em>by</em> <strong>{{ row.source }}</strong></p>
+      {% endfor %}
+     </div>
+     <div class="col">
+     </div>
+     <div class="col" style="background-color: rgba(189, 181, 181, 0.87); opacity:0.9;">
+      <p><h3 style="color: rgb(118, 103, 20); opacity: 1;">Come and Learn the Ropes</h3></p> 
+      <form action="/register" method="GET">  
+         <button class="btn btn-secondary" type="submit">   Register   </button>
+      </form>
+      <p></p>
+      <p>already a member?</p>
+      <form action="/login" method="GET">
+         <button class="btn btn-secondary" type="submit">    Log In    </button>
+      </form>
+      <p></p>
+     </div>
+   </div>
+ </div>
+
+
+
+{% endblock %}

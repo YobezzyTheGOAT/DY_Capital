@@ -1,0 +1,63 @@
+{% extends "layout.html" %}
+
+{% block title %}
+   Portfolio
+{% endblock %}
+
+{% block main %}
+
+ <div class="container">
+  <div class="row align-items-center" style="padding-top: 100px;">
+    <div class="col-6 left" >
+
+      <table class="table table-striped">
+        <thead>
+          <tr>
+             <th class="text-start">Company</th>
+             <th class="text-end">Shares</th>
+             <th class="text-end">Price</th>
+             <th class="text-end">Total</th>
+          </tr>
+        </thead>
+        <tbody style="color: rgb(102, 92, 38)">
+          <!-- Looping through the database entries to display them in the table -->
+          {% for row in data %}
+           <tr>
+              <td class="text-start">{{ row.company }} ({{ row.symbol }})</td>
+              <td class="text-end">{{ row.shares }}</td>
+              <td class="text-end">{{ row.dollarprice }}</td>
+              <td class="text-end">{{ row.dollartotal }}</td>
+           </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr>
+              <td class="border-0 fw-bold text-end" colspan="4">Cash</td>
+              <td class="border-0 text-end"><strong> {{ cash }} </strong></td>
+            </tr>
+            <tr>
+              <td class="border-0 fw-bold text-end" colspan="4"> TOTAL </td>
+              <td class="border-0 w-bold text-end" colspan="4"><strong>{{ total }}</strong></td>
+            </tr>
+        </tfoot>
+      </table>
+
+
+    </div>
+    <div class="col">
+    </div>
+
+    <div class="col-2">
+      <div data-status="{{display[0]}}" class="status" style="color: white;">
+      <p><h1><b>{{ display[2] }}%</b></h1></p>
+      <p>{{ display[0] }}:    {{ display[1] | usd }}</p>
+      <p></p>
+
+      <p></p>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

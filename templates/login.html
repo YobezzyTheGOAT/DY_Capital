@@ -1,0 +1,30 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Log In
+{% endblock %}
+
+{% block main %}
+    <div class="container">
+        <div class="row align-items-bottom">
+          <div class="col">
+             <p></p>
+             <p></p>
+             <p></p>
+             <form action="/login" method="post">
+                <div class="mb-3" style="padding-top: 100px;">
+                    <input autocomplete="off" autofocus class="form-control mx-auto w-auto" id="username" name="username" placeholder="Username" type="text">
+                </div>
+                <div class="mb-3">
+                    <input class="form-control mx-auto w-auto" id="password" name="password" placeholder="Password" type="password">
+                </div>
+                <button class="btn btn-secondary" type="submit">Log In</button>
+            </form>
+          </div>
+          <div class="col">
+          </div>
+          <div class="col">
+          </div>
+        </div>
+    </div>
+{% endblock %}

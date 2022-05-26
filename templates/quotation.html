@@ -1,0 +1,48 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Quotation
+{% endblock %}
+
+{% block main %}
+    <div class="container left">
+        <div class="row justify-content-start" style="padding-top: 100px;">
+          <div class="col-4" style="color: rgb(102, 92, 38)">
+            <h3>A share of {{ quotation["name"] }} ({{ quotation["sign"] }}) costs {{ quotation["shareprice"] | usd }}</h3>
+            <table class="table table-striped">
+                <tbody style="color: rgb(102, 92, 38)">
+                    <tr>
+                        <th>EPS</th>
+                        <td>{{ quotation["eps"] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Market Capitation</th>
+                        <td>{{ quotation["capitation"] | usd }}</td>
+                    </tr>
+                    <tr>
+                        <th>Projected EPS</th>
+                        <td>{{ quotation["futureeps"] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Dividend Yield</th>
+                        <td>{{ quotation["dyield"] }}%</td>
+                    </tr>
+                    <tr>
+                        <th>P/E Ratio</th>
+                        <td>{{ quotation["pe"] }}</td>
+                    </tr>
+                    <tr>
+                        <th>Book Value</th>
+                        <td>{{ quotation["bookvalue"] }}</td>
+                    </tr>
+                </tbody>
+            </table>
+          </div>
+          <div class="col-4">
+          </div>
+        </div>
+     </div>
+{% endblock %}
+
+
+

@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+
+{% block title %}
+  Home
+{% endblock %}
+
+{% block main %}
+
+ <div class="container">
+   <div class="row align-items-center">
+     <div class="col-5 left">
+      <h1>Word on the Street</h1>
+      <!-- Looping through the database entries to display them on the page -->
+
+      {% for row in display %}
+      <a href="{{ row.link }}" target="_blank">{{ row.title }} </a>
+      <p><em>by</em> <strong>{{ row.source }}</strong></p>
+      {% endfor %}
+     </div>
+     <div class="col">
+     </div>
+   </div>
+ </div>
+
+
+
+{% endblock %}
