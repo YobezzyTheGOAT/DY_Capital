@@ -38,7 +38,7 @@ def getinfo(symbol):
         querystring = {"symbol":symbol}
 
         headers = {"X-RapidAPI-Host": "mboum-finance.p.rapidapi.com",
-        "X-RapidAPI-Key": "570b66a37dmshecf56f44aefb4c1p1a2f38jsn2de0ab582ba0"
+        "X-RapidAPI-Key": os.getenv("APIkey")
         }
         response = requests.request("GET", url, headers=headers, params=querystring)
         response.raise_for_status
@@ -140,7 +140,7 @@ def getnews():
     url = "https://mboum-finance.p.rapidapi.com/ne/news"
     
     headers = {"X-RapidAPI-Host": "mboum-finance.p.rapidapi.com",
-               "X-RapidAPI-Key": "570b66a37dmshecf56f44aefb4c1p1a2f38jsn2de0ab582ba0"
+               "X-RapidAPI-Key": os.getenv("APIkey")
             }
     response = requests.request("GET", url, headers=headers)
     if response == None:

@@ -6,14 +6,21 @@ from flask import Flask, flash, redirect, render_template, request, session
 from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.security import check_password_hash, generate_password_hash
+from dotenv import load_dotenv
 
 
 from datetime import datetime
 
 from helpers import login_required, getinfo, usd, build_summaries, check_password, getnews
 
+def configure():
+    load_dotenv()
+
+
 # Configure application
 app = Flask(__name__)
+
+
 
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -45,6 +52,7 @@ def after_request(response):
 @app.route("/")
 def index():
     """flash news"""
+    configure()
     getnews()
 
     global logged
