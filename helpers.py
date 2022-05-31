@@ -90,23 +90,20 @@ def build_summaries():
             symbol = db.execute("SELECT symbol FROM transactions WHERE company = ?", dict_item[key])
             current_shares = db.execute("SELECT SUM(shares) FROM transactions WHERE company = ? AND user = ?",
                                         dict_item[key], session["user_id"])
-            quotation = getinfo(symbol[0]['symbol'])
-            price = quotation["shareprice"]
+            
+            try:
+                quotation = getinfo(symbol[0]['symbol'])
+            except (KeyError, TypeError, ValueError, IndexError):
+                return None
 
+            price = quotation["shareprice"]
             total = (current_shares[0]['SUM(shares)'] * float(price))
 
             db.execute("INSERT INTO summaries (user, symbol, company, shares, price, total, dollarprice, dollartotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                        session["user_id"], symbol[0]['symbol'], dict_item[key], current_shares[0]['SUM(shares)'], price, total, usd(price), usd(total))
 
-    #Delete companies with zero shares left in the portfolio
-    sold = db.execute("SELECT company FROM summaries WHERE user = ? AND shares = ?", session["user_id"], 0)
 
-    if sold:
-        for dict_item in sold:
-            for key in dict_item:
-                db.execute("DELETE FROM summaries WHERE user = ? AND company = ?", session["user_id"], dict_item[key])
-
-    return None
+    return 1
 
 
 def check_password(password):
@@ -137,35 +134,39 @@ def check_password(password):
 def getnews():
     """Retrive news information from the API"""
 
-    url = "https://mboum-finance.p.rapidapi.com/ne/news"
-    
-    headers = {"X-RapidAPI-Host": "mboum-finance.p.rapidapi.com",
-               "X-RapidAPI-Key": os.getenv("APIkey")
-            }
-    response = requests.request("GET", url, headers=headers)
-    if response == None:
+    try:
+        url = "https://mboum-finance.p.rapidapi.com/ne/news"
+        
+        headers = {"X-RapidAPI-Host": "mboum-finance.p.rapidapi.com",
+            "X-RapidAPI-Key": os.getenv("APIkey")
+        }
+        response = requests.request("GET", url, headers=headers)
+        response.raise_for_status
+    except requests.RequestException:
         print("DATA NOT FOUND")
         return None
 
-    data = response.json()
-    print("data got successfully")
-
-    newsdatabase_exists = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", 'thenews')
-
-     # Ensure file has been created to store summaries for display
-    if not newsdatabase_exists:
-         db.execute("CREATE TABLE thenews (title TEXT, link TEXT, source TEXT)")
-
-     # Clear earlier entries if file already exits
-    db.execute("DELETE FROM thenews")
-
-    # insert news into database
-    for n in range(0, 8):
-        title = data[n]["title"]
-        link = data[n]["link"]
-        source = data[n]["source"] 
-
-        db.execute("INSERT INTO thenews (title, link, source) VALUES (?, ?, ?)", title, link, source)
-        print("ITEM ADDED")
-    return None
+    try:
+        data = response.json()
+        print("data got successfully")
+        
+        newsdatabase_exists = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", 'thenews')
+        
+        # Ensure file has been created to store summaries for display
+        if not newsdatabase_exists:
+            db.execute("CREATE TABLE thenews (title TEXT, link TEXT, source TEXT)")
+            
+        # Clear earlier entries if file already exits
+        db.execute("DELETE FROM thenews")
+        
+        # insert news into database
+        for n in range(0, 8):
+            title = data[n]["title"]
+            link = data[n]["link"]
+            source = data[n]["source"] 
+            db.execute("INSERT INTO thenews (title, link, source) VALUES (?, ?, ?)", title, link, source)
+            print("ITEM ADDED")
+        return 1
+    except (KeyError, TypeError, ValueError, IndexError):
+        return None
 

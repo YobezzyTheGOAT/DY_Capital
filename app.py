@@ -13,14 +13,13 @@ from datetime import datetime
 
 from helpers import login_required, getinfo, usd, build_summaries, check_password, getnews
 
+#loading environment
 def configure():
     load_dotenv()
 
 
 # Configure application
 app = Flask(__name__)
-
-
 
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
@@ -52,8 +51,17 @@ def after_request(response):
 @app.route("/")
 def index():
     """flash news"""
+
+    # retrive API key from environment 
     configure()
-    getnews()
+
+    # check if API request for news is successfull
+    result = getnews()
+
+    # redirect to Portfolio page, if API is down
+    if result != 1:
+        flash("API down! Can't retrive news stories")
+        return redirect("/portfolio")
 
     global logged
 
@@ -81,7 +89,7 @@ def portfolio():
 
     if been_trading:
         # Prepare data for casting onto the html page
-        data = db.execute("SELECT * FROM summaries WHERE user = ?", session["user_id"])
+        data = db.execute("SELECT * FROM summaries WHERE user = ? AND shares > 0", session["user_id"])
 
         total_for_all_companies = db.execute("SELECT SUM(total) FROM summaries WHERE user = ?", session["user_id"])
         current_cash = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])
@@ -145,7 +153,11 @@ def buy():
         db.execute("UPDATE users SET cash = ? WHERE id = ?", cash_balance, session["user_id"])
 
         # Show updated portfolio
-        build_summaries()
+        result = build_summaries()
+
+        if result != 1:
+            flash("share(s) bought successfully but error in updating Portfolio... please wait and refresh!")
+            return redirect("/portfolio")
 
         flash("share(s) bought successfully!")
 
@@ -332,7 +344,12 @@ def sell():
         db.execute("UPDATE users SET cash = ? WHERE id = ?", cash_balance, session["user_id"])
 
         # Show updated portfolio
-        build_summaries()
+        result = build_summaries()
+
+        if result != 1:
+            flash("share(s) sold successfully but error in updating Portfolio... please wait and refresh!")
+            return redirect("/portfolio")
+
 
         flash("share(s) sold successfully!")
 
@@ -340,5 +357,5 @@ def sell():
 
     # User reached route via GET (as by clicking a link or via redirect)
     else:
-        symbols = db.execute("SELECT DISTINCT symbol FROM transactions WHERE user = ?", session["user_id"])
+        symbols = db.execute("SELECT DISTINCT symbol FROM summaries WHERE user = ?", session["user_id"])
         return render_template("sell.html", signs=symbols)
