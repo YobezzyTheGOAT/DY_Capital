@@ -7,9 +7,8 @@ from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.security import check_password_hash, generate_password_hash
 from dotenv import load_dotenv
-
-
 from datetime import datetime
+import psycopg2
 
 from helpers import login_required, getinfo, usd, build_summaries, check_password, getnews
 
@@ -32,10 +31,11 @@ app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
-# Configure CS50 Library to use SQLite database
-db = SQL("sqlite:///database.db")
+# Connect to Postgres database
+database = psycopg2.connect(database="DYCapital", user="postgres", password=os.getenv("password"), host="localhost", port="5432")
+commandline = database.cursor()
 
-# Global variable for tracking user status
+#Global variable to track login status
 logged = False
 
 
@@ -52,48 +52,65 @@ def after_request(response):
 def index():
     """flash news"""
 
+    global logged
+
     # retrive API key from environment 
     configure()
 
     # check if API request for news is successfull
     result = getnews()
 
+    # check if news database exits
+    commandline.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'oldnews')")
+    oldnews_exists = commandline.fetchall()
+
+    #retrive news if the database exists
+    if oldnews_exists[0][0]:
+        commandline.execute("SELECT * FROM oldnews")
+        displaynews = commandline.fetchall()
+
+
     # redirect to Portfolio page, if API is down
     if result != 1:
-        flash("API down! Can't retrive news stories")
-        return redirect("/portfolio")
-
-    global logged
-
-    newsdatabase_exists = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", 'thenews')
-    
-    if newsdatabase_exists:
+        if not oldnews_exists[0][0]:
+            flash("API down! Can't retrive news stories")
+            return redirect("/portfolio")
+        else:
+            if logged:
+                return render_template("newsloggedin.html", display=displaynews)
+            else:
+                return render_template("news.html", display=displaynews)
+    if result == 1:
         if logged:
-            displaynews = db.execute("SELECT * FROM thenews")
             return render_template("newsloggedin.html", display=displaynews)
         else:
-            displaynews = db.execute("SELECT * FROM thenews")
             return render_template("news.html", display=displaynews)
-            
-  
-    # Redirect user to home page
-    return redirect("/portfolio")
+
 
 
 @app.route("/portfolio")
 @login_required
 def portfolio():
     """Show portfolio of stocks"""
+
     # Check if the user has made any trades
-    been_trading = db.execute("SELECT * FROM transactions WHERE user = ?", session["user_id"])
+    commandline.execute("SELECT * FROM transactions WHERE theuser = (%s)", (session["user_id"],))
+    been_trading = commandline.fetchall()
 
-    if been_trading:
+    if len(been_trading) > 0:
         # Prepare data for casting onto the html page
-        data = db.execute("SELECT * FROM summaries WHERE user = ? AND shares > 0", session["user_id"])
+        commandline.execute("SELECT * FROM summaries WHERE me = (%s)  AND shares > 0", (session["user_id"],))
+        data = commandline.fetchall()
 
-        total_for_all_companies = db.execute("SELECT SUM(total) FROM summaries WHERE user = ?", session["user_id"])
-        current_cash = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])
-        the_total = (total_for_all_companies[0]['SUM(total)'] + current_cash[0]['cash'])
+               # total_for_all_companies 
+        commandline.execute("SELECT SUM(total) FROM summaries WHERE me = (%s)", (session["user_id"],))
+        total_for_all_companies = commandline.fetchall()
+
+              # current cash
+        commandline.execute("SELECT cash FROM users WHERE id = (%s)", (session["user_id"],))
+        current_cash = commandline.fetchall()
+
+        the_total = (total_for_all_companies[0][0] + current_cash[0][0])
 
         original_cash = 10000
         profitloss = the_total - original_cash
@@ -110,8 +127,7 @@ def portfolio():
         display.append(profitloss)
         display.append(int(percentage))
 
-
-        return render_template("portfolio.html", data=data, cash=usd(current_cash[0]['cash']), total=usd(the_total), display=display)
+        return render_template("portfolio.html", data=data, cash=usd(current_cash[0][0]), total=usd(the_total), display=display)
 
     # Incase the user hasn't made any trades
     else:
@@ -136,21 +152,27 @@ def buy():
 
         the_price = quotation["shareprice"]
         total_cost = (float(the_price) * float(shares))
-        available_cash = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])
+
+        #available cash
+        commandline.execute("SELECT cash FROM users WHERE id = (%s)", (session["user_id"],))
+        available_cash = commandline.fetchall()
+
         time = datetime.now()
-        cash_balance = (float(available_cash[0]['cash']) - float(total_cost))
+        cash_balance = (float(available_cash[0][0]) - float(total_cost))
 
         # Ensure user can afford the purchase
-        if not (float(available_cash[0]['cash']) > float(total_cost)):
+        if not (float(available_cash[0][0]) > float(total_cost)):
             flash("you don't have enough cash!")
             return render_template("buy.html")
 
         # Effect the purchase
-        db.execute("INSERT INTO transactions (user, company, symbol, type, price, shares, total, timing, dollarprice) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                   session["user_id"], quotation["name"], quotation["sign"], "BUY", float(the_price), int(shares), float(total_cost), time, usd(float(the_price)))
+        commandline.execute("INSERT INTO transactions (theuser, company, symbol, type, price, shares, total, timing, dollarprice) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                   (session["user_id"], quotation["name"], quotation["sign"], "BUY", float(the_price), int(shares), float(total_cost), time, usd(float(the_price))))
+        database.commit()
 
         # Update the old primary database
-        db.execute("UPDATE users SET cash = ? WHERE id = ?", cash_balance, session["user_id"])
+        commandline.execute("UPDATE users SET cash = (%s) WHERE id = (%s)", (cash_balance, session["user_id"]))
+        database.commit()
 
         # Show updated portfolio
         result = build_summaries()
@@ -174,9 +196,10 @@ def history():
     """Show history of transactions"""
 
     # Check if the user has made any trades
-    been_trading = db.execute("SELECT * FROM transactions WHERE user = ?", session["user_id"])
+    commandline.execute("SELECT * FROM transactions WHERE theuser = (%s)", (session["user_id"],))
+    been_trading = commandline.fetchall()
 
-    if been_trading:
+    if len(been_trading) > 0:
         return render_template("history.html", data=been_trading)
 
     else:
@@ -206,15 +229,16 @@ def login():
             return render_template("login.html")
 
         # Query database for username
-        rows = db.execute("SELECT * FROM users WHERE username = ?", request.form.get("username"))
+        commandline.execute("SELECT * FROM users WHERE username = (%s)", (request.form.get("username"),))
+        rows = commandline.fetchall()
 
         # Ensure username exists and password is correct
-        if len(rows) != 1 or not check_password_hash(rows[0]["hash"], request.form.get("password")):
+        if len(rows) != 1 or not check_password_hash(rows[0][2], request.form.get("password")):
             flash("invalid username and/or password!")
             return render_template("login.html")
 
         # Remember which user has logged in
-        session["user_id"] = rows[0]["id"]
+        session["user_id"] = rows[0][0]
         logged = True
 
         # Redirect user to home page
@@ -270,7 +294,10 @@ def register():
         entered_password = request.form.get("password")
         confirmed_password = request.form.get("confirmation")
         hashed_password = generate_password_hash(entered_password, method='pbkdf2:sha256', salt_length=8)
-        exists = db.execute("SELECT username FROM users WHERE username = ?", entered_username)
+
+        #exists
+        commandline.execute("SELECT username FROM users WHERE username = (%s)", (entered_username,))
+        exists = commandline.fetchall()
 
         # Ensure username was submitted
         if not entered_username:
@@ -278,7 +305,7 @@ def register():
             return render_template("register.html")
 
         # Ensure username not already taken up in the database
-        elif exists:
+        elif len(exists) > 0:
             flash("username already taken!")
             return render_template("register.html")
 
@@ -298,7 +325,8 @@ def register():
             return render_template("register.html")
 
         # Record user details
-        db.execute("INSERT INTO users (username, hash) VALUES (?, ?)", entered_username, hashed_password)
+        commandline.execute("INSERT INTO users (username, hash) VALUES (%s, %s)", (entered_username, hashed_password))
+        database.commit()
 
         # Take user to login page
         return redirect("/login")
@@ -323,25 +351,35 @@ def sell():
             return render_template("sell.html")
 
         the_price = quotation["shareprice"]
-        shares_available_forsale = db.execute(
-            "SELECT SUM(shares) FROM transactions WHERE user = ? AND symbol = ?", session["user_id"], company)
+
+        #shares available for sale
+        commandline.execute(
+            "SELECT SUM(shares) FROM transactions WHERE theuser = (%s) AND symbol = (%s)", (session["user_id"], company))
+        shares_available_forsale = commandline.fetchall()
+        
         sales_proceeds = (float(the_price) * float(shares))
-        current_cash = db.execute("SELECT cash FROM users WHERE id = ?", session["user_id"])
+        
+        #current cash
+        commandline.execute("SELECT cash FROM users WHERE id = (%s)", (session["user_id"],))
+        current_cash = commandline.fetchall()
+
         time = datetime.now()
 
-        cash_balance = (float(current_cash[0]['cash']) + float(sales_proceeds))
+        cash_balance = (float(current_cash[0][0]) + float(sales_proceeds))
 
         # Ensure user has the shares
-        if not (int(shares_available_forsale[0]['SUM(shares)']) >= int(shares)):
+        if not (int(shares_available_forsale[0][0]) >= int(shares)):
             flash("you don't have enough shares to sell")
             return redirect("/sell")
 
         # Effect the sale
-        db.execute("INSERT INTO transactions (user, company, symbol, type, price, shares, total, timing, dollarprice) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                   session["user_id"], quotation["name"], quotation["sign"], "SELL", float(the_price), (int(shares) * -1), float(sales_proceeds), time, usd(float(the_price)))
+        commandline.execute("INSERT INTO transactions (theuser, company, symbol, type, price, shares, total, timing, dollarprice) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                   (session["user_id"], quotation["name"], quotation["sign"], "SELL", float(the_price), (int(shares) * -1), float(sales_proceeds), time, usd(float(the_price))))
+        database.commit()
 
         # Update the old primary database
-        db.execute("UPDATE users SET cash = ? WHERE id = ?", cash_balance, session["user_id"])
+        commandline.execute("UPDATE users SET cash = (%s) WHERE id = (%s)", (cash_balance, session["user_id"]))
+        database.commit
 
         # Show updated portfolio
         result = build_summaries()
@@ -357,5 +395,8 @@ def sell():
 
     # User reached route via GET (as by clicking a link or via redirect)
     else:
-        symbols = db.execute("SELECT DISTINCT symbol FROM summaries WHERE user = ?", session["user_id"])
+        #symbols
+        commandline.execute("SELECT DISTINCT symbol FROM summaries WHERE me = (%s) AND shares > 0", (session["user_id"],))
+        symbols = commandline.fetchall()
+
         return render_template("sell.html", signs=symbols)

@@ -23,10 +23,10 @@
           <!-- Looping through the database entries to display them in the table -->
           {% for row in data %}
            <tr>
-              <td class="text-start">{{ row.company }} ({{ row.symbol }})</td>
-              <td class="text-end">{{ row.shares }}</td>
-              <td class="text-end">{{ row.dollarprice }}</td>
-              <td class="text-end">{{ row.dollartotal }}</td>
+              <td class="text-start">{{ row[2] }} ({{ row[1] }})</td>
+              <td class="text-end">{{ row[3] }}</td>
+              <td class="text-end">{{ row[6] }}</td>
+              <td class="text-end">{{ row[7] }}</td>
            </tr>
           {% endfor %}
         </tbody>

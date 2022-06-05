@@ -2,15 +2,16 @@ import os
 import requests
 import urllib.parse
 from cs50 import SQL
+import psycopg2
 
 from flask import redirect, render_template, request, session
 from functools import wraps
 
 import re
 
-# Configure CS50 Library to use SQLite database
-db = SQL("sqlite:///database.db")
-
+# connect to database
+database = psycopg2.connect(database="DYCapital", user="postgres", password=os.getenv("password"), host="localhost", port="5432")
+commandline = database.cursor()
 
 
 def login_required(f):
@@ -71,37 +72,43 @@ def usd(value):
 
 def build_summaries():
     """Create summary database for displaying portfolio"""
-
-    summary_exists = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", 'summaries')
+    
+    commandline.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'summaries')")
+    summary_exists = commandline.fetchall()
 
     # Ensure file has been created to store summaries for display
-    if not summary_exists:
-        db.execute("CREATE TABLE summaries (user INTEGER, symbol TEXT, company TEXT, shares INTEGER, price INTEGER, total INTEGER, dollarprice TEXT, dollartotal TEXT, FOREIGN KEY(user) REFERENCES users(id))")
+    if not summary_exists[0][0]:
+        commandline.execute("CREATE TABLE summaries (me INTEGER REFERENCES users(id), symbol TEXT, company TEXT, shares INTEGER, price INTEGER, total INTEGER, dollarprice TEXT, dollartotal TEXT)")
+        database.commit()
 
-     # Clear earlier entries if file already exits
-    db.execute("DELETE FROM summaries")
+    # Clear earlier entries if file already exits
+    commandline.execute("DELETE FROM summaries")
+    database.commit()
 
     # Pick out the companies whose stocks the user has traded
-    company = db.execute("SELECT DISTINCT company FROM transactions WHERE user = ?", session["user_id"])
+    commandline.execute("SELECT DISTINCT company FROM transactions WHERE theuser = (%s) AND shares > 0", (session["user_id"],))
+    company = commandline.fetchall()
 
     # Loop through each company and collect all the info needed for display and insert it into the summaries file
-    for dict_item in company:
-        for key in dict_item:
-            symbol = db.execute("SELECT symbol FROM transactions WHERE company = ?", dict_item[key])
-            current_shares = db.execute("SELECT SUM(shares) FROM transactions WHERE company = ? AND user = ?",
-                                        dict_item[key], session["user_id"])
+    for row in company:
+        commandline.execute("SELECT symbol FROM transactions WHERE company = (%s)", (row[0],))
+        print("symbol =", row[0])
+        symbol = commandline.fetchall()
+
+        commandline.execute("SELECT SUM(shares) FROM transactions WHERE company = (%s) AND theuser = (%s)", (row[0], session["user_id"]))
+        current_shares = commandline.fetchall()
             
-            try:
-                quotation = getinfo(symbol[0]['symbol'])
-            except (KeyError, TypeError, ValueError, IndexError):
-                return None
+        try:
+            quotation = getinfo(symbol[0][0])
+        except (KeyError, TypeError, ValueError, IndexError):
+            return None
 
-            price = quotation["shareprice"]
-            total = (current_shares[0]['SUM(shares)'] * float(price))
+        price = quotation["shareprice"]
+        total = (current_shares[0][0] * float(price))
 
-            db.execute("INSERT INTO summaries (user, symbol, company, shares, price, total, dollarprice, dollartotal) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                       session["user_id"], symbol[0]['symbol'], dict_item[key], current_shares[0]['SUM(shares)'], price, total, usd(price), usd(total))
-
+        commandline.execute("INSERT INTO summaries (me, symbol, company, shares, price, total, dollarprice, dollartotal) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)",
+                       (session["user_id"], symbol[0][0], row[0], current_shares[0][0], price, total, usd(price), usd(total)))
+        database.commit()
 
     return 1
 
@@ -149,23 +156,47 @@ def getnews():
     try:
         data = response.json()
         print("data got successfully")
+
+        commandline.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'thenews')")
+        newsdatabase_exists = commandline.fetchall()
+
+        commandline.execute("SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename  = 'oldnews')")
+        oldnewsdatabase_exists = commandline.fetchall()
         
-        newsdatabase_exists = db.execute("SELECT name FROM sqlite_master WHERE type='table' AND name= ?", 'thenews')
         
-        # Ensure file has been created to store summaries for display
-        if not newsdatabase_exists:
-            db.execute("CREATE TABLE thenews (title TEXT, link TEXT, source TEXT)")
+        # Ensure file has been created to store news for display
+        if not newsdatabase_exists[0][0]:
+            commandline.execute("CREATE TABLE thenews (title TEXT, link TEXT, source TEXT)")
+            database.commit()
+        
+        if not oldnewsdatabase_exists[0][0]:
+            commandline.execute("CREATE TABLE oldnews (title TEXT, link TEXT, source TEXT)")
+            database.commit()
+
             
         # Clear earlier entries if file already exits
-        db.execute("DELETE FROM thenews")
+        commandline.execute("DELETE FROM thenews")
+        database.commit()
         
         # insert news into database
         for n in range(0, 8):
             title = data[n]["title"]
             link = data[n]["link"]
             source = data[n]["source"] 
-            db.execute("INSERT INTO thenews (title, link, source) VALUES (?, ?, ?)", title, link, source)
-            print("ITEM ADDED")
+            commandline.execute("INSERT INTO thenews (title, link, source) VALUES (%s, %s, %s)", (title, link, source))
+            database.commit()
+
+        # Clear old news if new news written successfully 
+        commandline.execute("DELETE FROM oldnews")
+        database.commit()
+
+        # update old news
+        for n in range(0, 8):
+            title = data[n]["title"]
+            link = data[n]["link"]
+            source = data[n]["source"] 
+            commandline.execute("INSERT INTO oldnews (title, link, source) VALUES (%s, %s, %s)", (title, link, source))
+            database.commit()
         return 1
     except (KeyError, TypeError, ValueError, IndexError):
         return None

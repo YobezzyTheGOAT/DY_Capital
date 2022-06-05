@@ -13,8 +13,8 @@
       <!-- Looping through the database entries to display them on the page -->
 
       {% for row in display %}
-      <a href="{{ row.link }}" target="_blank">{{ row.title }} </a>
-      <p><em>by</em> <strong>{{ row.source }}</strong></p>
+      <a href="{{ row[1] }}" target="_blank">{{ row[0] }} </a>
+      <p><em>by</em> <strong>{{ row[2] }}</strong></p>
       {% endfor %}
      </div>
      <div class="col">
