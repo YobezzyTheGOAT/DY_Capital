@@ -9,8 +9,12 @@ from functools import wraps
 
 import re
 
+#secret keys
+APIKey = os.getenv('APIkey')
+password = os.getenv('password')
+
 # connect to database
-database = psycopg2.connect(database="dd7ltg9ah7hqh2", user="diijiqsuzbdmae", password=os.getenv("password"), host="ec2-34-231-221-151.compute-1.amazonaws.com", port="5432")
+database = psycopg2.connect(database="dd7ltg9ah7hqh2", user="diijiqsuzbdmae", password=password, host="ec2-34-231-221-151.compute-1.amazonaws.com", port="5432")
 commandline = database.cursor()
 
 
@@ -39,7 +43,7 @@ def getinfo(symbol):
         querystring = {"symbol":symbol}
 
         headers = {"X-RapidAPI-Host": "mboum-finance.p.rapidapi.com",
-        "X-RapidAPI-Key": os.getenv("APIkey")
+        "X-RapidAPI-Key": APIKey
         }
         response = requests.request("GET", url, headers=headers, params=querystring)
         response.raise_for_status
@@ -145,7 +149,7 @@ def getnews():
         url = "https://mboum-finance.p.rapidapi.com/ne/news"
         
         headers = {"X-RapidAPI-Host": "mboum-finance.p.rapidapi.com",
-            "X-RapidAPI-Key": os.getenv("APIkey")
+            "X-RapidAPI-Key": APIKey
         }
         response = requests.request("GET", url, headers=headers)
         response.raise_for_status

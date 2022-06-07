@@ -20,6 +20,10 @@ def configure():
 # Configure application
 app = Flask(__name__)
 
+#secret keys
+APIKey = os.getenv('APIkey')
+password = os.getenv('password')
+
 # Ensure templates are auto-reloaded
 app.config["TEMPLATES_AUTO_RELOAD"] = True
 
@@ -32,7 +36,7 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app)
 
 # Connect to Postgres database
-database = psycopg2.connect(database="dd7ltg9ah7hqh2", user="diijiqsuzbdmae", password=os.getenv("password"), host="ec2-34-231-221-151.compute-1.amazonaws.com", port="5432")
+database = psycopg2.connect(database="dd7ltg9ah7hqh2", user="diijiqsuzbdmae", password=password, host="ec2-34-231-221-151.compute-1.amazonaws.com", port="5432")
 commandline = database.cursor()
 
 #Global variable to track login status
