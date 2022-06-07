@@ -10,7 +10,7 @@ from functools import wraps
 import re
 
 # connect to database
-database = psycopg2.connect(database="DYCapital", user="postgres", password=os.getenv("password"), host="localhost", port="5432")
+database = psycopg2.connect(database="dd7ltg9ah7hqh2", user="diijiqsuzbdmae", password=os.getenv("password"), host="ec2-34-231-221-151.compute-1.amazonaws.com", port="5432")
 commandline = database.cursor()
 
 
